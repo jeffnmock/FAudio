@@ -2096,6 +2096,12 @@ uint32_t FACT_INTERNAL_ParseAudioEngine(
 		pEngine->categories[i].visibility = read_u8(&ptr);
 		pEngine->categories[i].instanceCount = 0;
 		pEngine->categories[i].currentVolume = 1.0f;
+
+		/* Override FAIL to REPLACE_OLDEST (see SoundBank comment) */
+		if (pEngine->categories[i].maxInstanceBehavior == MAX_INSTANCE_BEHAVIOR_FAIL)
+		{
+			pEngine->categories[i].maxInstanceBehavior = MAX_INSTANCE_BEHAVIOR_REPLACE_OLDEST;
+		}
 	}
 
 	/* Variable data */
@@ -2913,6 +2919,20 @@ uint32_t FACT_INTERNAL_ParseSoundBank(
 	else
 	{
 		sb->cueNames = NULL;
+	}
+
+	/* Override all cue instance behaviors to REPLACE_OLDEST.
+	 * The .xgs defaults to FAIL, which silently and permanently
+	 * drops new sounds when the instance limit is reached.
+	 * REPLACE_OLDEST gracefully fades out the oldest playing
+	 * instance, keeping audio responsive during combat bursts.
+	 */
+	for (i = 0; i < sb->cueCount; i += 1)
+	{
+		if (sb->cues[i].maxInstanceBehavior == MAX_INSTANCE_BEHAVIOR_FAIL)
+		{
+			sb->cues[i].maxInstanceBehavior = MAX_INSTANCE_BEHAVIOR_REPLACE_OLDEST;
+		}
 	}
 
 	/* Add to the Engine SoundBank list */
