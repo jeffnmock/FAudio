@@ -1,0 +1,76 @@
+name: Build fnalibs
+
+on:
+  push:
+    branches: [pit-fan-mod]
+
+jobs:
+  macos:
+    name: macOS (Universal)
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Clone SDL3
+      run: git clone --depth 1 --branch release-3.2.0 https://github.com/libsdl-org/SDL.git
+    - name: Install deps
+      run: brew install ninja
+    - name: Build SDL3
+      run: |
+        cd SDL
+        cmake -B release -G Ninja . -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+        ninja -C release
+    - name: Build FAudio
+      run: |
+        cmake -B release -G Ninja . -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+          -DSDL3_DIR=${GITHUB_WORKSPACE}/SDL/release
+        ninja -C release
+    - uses: actions/upload-artifact@v4
+      with:
+        name: FAudio-osx
+        path: release/libFAudio.0.dylib
+
+  windows:
+    name: Windows x64
+    runs-on: ubuntu-latest
+    container:
+      image: fedora
+    steps:
+    - name: Install toolchain
+      run: dnf install -y git cmake ninja-build mingw64-gcc mingw64-SDL3
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Build
+      run: |
+        mingw64-cmake -B release -G Ninja . -DCMAKE_BUILD_TYPE=Release
+        ninja -C release
+    - uses: actions/upload-artifact@v4
+      with:
+        name: FAudio-x64
+        path: release/FAudio.dll
+
+  linux:
+    name: Linux x64
+    runs-on: ubuntu-latest
+    container:
+      image: registry.gitlab.steamos.cloud/steamrt/sniper/sdk:latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Install chrpath
+      run: apt install -y chrpath
+    - name: Build
+      run: |
+        cmake -B release -G Ninja . -DCMAKE_BUILD_TYPE=Release
+        ninja -C release
+        chrpath -d release/libFAudio.so.0
+        strip -S release/libFAudio.so.0
+    - uses: actions/upload-artifact@v4
+      with:
+        name: FAudio-lib64
+        path: release/libFAudio.so.0
